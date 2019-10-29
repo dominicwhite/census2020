@@ -1,11 +1,13 @@
 console.log(dcStats);
 
 var map = L.map('map', {
-    atttribution: "Leaflet | DataKindDC"
+    prefix: false
 }).setView([38.9145, -77.045992], 12);
+map.attributionControl.setPrefix(false);
+map.attributionControl.addAttribution("DataKind DC | Motivf");
 
 L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/rastertiles/voyager/{z}/{x}/{y}.png', {
-	attribution: 'DataKind DC',
+	// attribution: 'DataKind DC',
 	maxZoom: 18
 }).addTo(map);
 
@@ -23,7 +25,6 @@ function getColor(d) {
 }
 
 function style(feature) {
-    console.log(feature);
 	return {
 		fillColor: getColor(dcStats[feature.properties.GEOID]["pct_Hispanic_ACS_13_17"]),
 		weight: 2,
