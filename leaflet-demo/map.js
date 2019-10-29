@@ -1,6 +1,13 @@
 console.log(dcStats);
 
-var map = L.map('map').setView([38.9145, -77.045992], 12);
+var map = L.map('map', {
+    atttribution: "Leaflet | DataKindDC"
+}).setView([38.9145, -77.045992], 12);
+
+L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/rastertiles/voyager/{z}/{x}/{y}.png', {
+	attribution: 'DataKind DC',
+	maxZoom: 18
+}).addTo(map);
 
 function getColor(d) {
 	return d > 90 ? '#a50026' :
