@@ -18,15 +18,27 @@
       >
         
       </l-control-attribution>
+    <l-control id="voi-selector" position="bottomleft" style="margin-bottom: 25%;">
+      <select v-model="voi">
+        <option value="pct_ENG_VW_SPAN_ACS_13_17">% Spanish language households</option>
+        <option value="pct_ENG_VW_INDOEURO_ACS_13_17">% Indo-European language households</option>
+        <option value="pct_ENG_VW_API_ACS_13_17">% Asian/Pacific language households</option>
+        <option value="pct_ENG_VW_OTHER_ACS_13_17">% Other (non-English) language housholds</option>
+        <!-- <option value="pct_Hispanic_ACS_13_17">% Hispanic</option> -->
+      </select>
+    </l-control>
     <l-choropleth-layer 
-      :data="pyDepartmentsData" 
+      :data="blockGroupData" 
       title-key="GIDBG_name" 
       id-key="GIDBG" 
       :value="value" 
       :extra-values="extraValues" 
       geojson-id-key="GEOID" 
       :geojson="geojson" 
-      :color-scale="colorScale">
+      :color-scale="colorScale"
+      :key="voi" 
+      >
+      <!-- Note: key in l-chloropleth-layer is needed for reactive update to change in value -->
       <template slot-scope="props">
         <l-info-control 
           :item="props.currentItem"
@@ -36,7 +48,8 @@
           position="topright">
         </l-info-control>
         <l-reference-chart 
-          title="% Hispanic" 
+          id="voi-color-reference"
+          :title="value.metric" 
           :color-scale="colorScale" 
           :min="props.min" 
           :max="props.max" position="bottomleft">
@@ -49,18 +62,43 @@
 </template>
 
 <script>
-import { LMap, LControlAttribution, LTileLayer } from 'vue2-leaflet';
+import { LMap, LControl, LControlAttribution, LTileLayer } from 'vue2-leaflet';
 import { InfoControl, ReferenceChart, ChoroplethLayer } from 'vue-choropleth';
 
 export default {
   name: 'LeafletMap',
   components: {
     LMap,
+    LControl,
     LControlAttribution,
     LTileLayer,
     'l-info-control': InfoControl, 
     'l-reference-chart': ReferenceChart, 
     'l-choropleth-layer': ChoroplethLayer,
+  },
+  computed: {
+    value(){
+      return {
+          key: this.voi,
+          metric: this.displayVariables[this.voi]
+      }
+    },
+    extraValues() {
+      let ev = [];
+      for (let variable in this.displayVariables){
+        if (variable !== this.voi) {
+          ev.push({
+            key: variable,
+            metric: this.displayVariables[variable]
+          })
+        }
+      }
+      return ev;
+      // [{
+      //   key: "pct_Hispanic_ACS_13_17",
+      //   metric: "% Hispanic (2017 ACS)"
+      // }]
+    } 
   },
   data() {
     return {
@@ -68,9 +106,12 @@ export default {
       map: false,
       zoom: 12,
       bounds: [],
-
       center: [38.9145, -77.045992],
-      pyDepartmentsData: [],
+      mapOptions: {
+          attributionControl: false
+      },
+
+      blockGroupData: [],
       geojson: {type:"FeatureCollection", features:[]},
       colorScale: [
         "313695", 
@@ -84,16 +125,13 @@ export default {
         "d73027", 
         "a50026"
         ],
-      value: {
-          key: "pct_Hispanic_CEN_2010",
-          metric: "% Hispanic (2010 census)"
-      },
-      extraValues: [{
-          key: "pct_Hispanic_ACS_13_17",
-          metric: "% Hispanic (2017 ACS)"
-      }],
-      mapOptions: {
-          attributionControl: false
+      voi: "pct_ENG_VW_SPAN_ACS_13_17",
+      displayVariables: {
+        pct_ENG_VW_SPAN_ACS_13_17: "% Spanish language households",
+        pct_ENG_VW_INDOEURO_ACS_13_17: "% Indo-European language households",
+        pct_ENG_VW_API_ACS_13_17: "% Asian/Pacific language households",
+        pct_ENG_VW_OTHER_ACS_13_17: "% Other (non-English) language housholds",
+        // pct_Hispanic_ACS_13_17: "% Hispanic"
       }
     };
   },
@@ -106,6 +144,9 @@ export default {
     },
     boundsUpdated (bounds) {
       this.bounds = bounds;
+    },
+    clickHandler() {
+
     }
   },
   mounted() {
@@ -117,7 +158,7 @@ export default {
     const stats = fetch('data/dc_data.json')
       .then(response => response.json())
       .then(data => {
-        this.pyDepartmentsData = data;
+        this.blockGroupData = data;
       });
     this.$nextTick(() => {
       this.map = this.$refs.map.mapObject;
@@ -128,5 +169,7 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="less">
-
+// voi-selector {
+//   margin-bottom: 100px;
+// }
 </style>
