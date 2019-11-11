@@ -88,6 +88,10 @@ nativity_data <- get_acs('tract',
                      county = "District of Columbia", 
                      geometry = TRUE,
                      output="wide")
+st_write(nativity_data, 
+         file.path(here(),"data","raw", "foreign_country_of_birth2.csv"), 
+         layer_options = "GEOMETRY=AS_WKT",
+         delete_dsn=TRUE)
 write_csv(nativity_data, file.path(here(),"data","raw", "foreign_country_of_birth.csv"))
 
 # get tract-level language data from api (note: from 2015)
