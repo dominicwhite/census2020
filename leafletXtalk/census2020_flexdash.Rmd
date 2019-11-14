@@ -1,0 +1,142 @@
+---
+title: "census2020 web app"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme: lumen
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(sf)
+library(dplyr)
+library(DT)
+library(leaflet)
+library(htmltools)
+library(crosstalk)
+library(readr)
+library(tidyr)
+
+# get the language data
+
+dc_language <- read_csv("data/dc_language.csv", 
+                               col_types = cols(GIDBG = col_character()))
+
+# select only hispanic for decenial and acs 13/17
+dc_hispanic <- dc_language %>% 
+                 select_all(tolower) %>% 
+                 select(geoid = gidbg, tract, block_group, matches("^pct_hispanic")) %>% 
+                 pivot_longer(4:5, names_to = "language", values_to = "prcnt")
+
+# read geo
+dc_geo <- read_rds("data/dc_census_geo.rds")
+dc_geo_sf <- dc_geo %>% select(geoid = GEOID)
+
+# change the datum value to +datum=WGS84
+dc_geo_sf <- st_transform(dc_geo_sf, crs = 4326)
+
+# merge geo with data
+df_sf <- dc_geo_sf %>% 
+           left_join(dc_hispanic, by = "geoid") %>%
+           mutate(hispanic =  case_when(language == "pct_hispanic_cen_2010" ~ "cen_2010",                                                                                             language == "pct_hispanic_acs_13_17" ~ "acs_13_17")) %>%
+           select(geoid, tract, block_group, hispanic, prcnt)
+
+
+# Prepare data for multi processing
+df_cen <- df_sf %>% filter(hispanic == "cen_2010") %>% sf::st_as_sf()
+df_acs <- df_sf %>% filter(hispanic == "acs_13_17") %>% sf::st_as_sf()
+
+# sharable data frame for later use
+sd1_cen <- SharedData$new(df_cen, group = "decen")
+sd1_acs <- SharedData$new(df_acs, group = "acs")
+
+
+# prep data for labels 
+cen_2010 <- df_sf %>% filter(hispanic == "cen_2010") %>% select(prcnt)
+acs_2017 <- df_sf %>% filter(hispanic == "acs_13_17") %>% select(prcnt)
+
+# popup
+acs_2017$popup_text <- paste0("<b>","geoid: ","</b>", acs_2017$geoid, "<br>",
+                              "<b>", "tract: ","</b>", acs_2017$tract, "<br>", 
+                              "<b>", "block_group: ","</b>" ,acs_2017$block_group, "<br>",
+                              "<b>", "prcnt: ","</b>" ,acs_2017$prcnt,"%"
+                             )
+
+# continous color fill
+pal1 <- colorNumeric( palette = "Reds", domain = (cen_2010$prcnt))
+pal2 <- colorNumeric( palette = "Reds", domain = (acs_2017$prcnt)) 
+
+#labels
+label_1 <- sprintf(
+                  "<strong>GEOID: </strong> %s<br/><strong>Percent: </strong> %g",
+                  df_cen$geoid, df_cen$prcnt
+                  ) %>% lapply(htmltools::HTML)
+label_2 <- sprintf(
+                  "<strong>GEOID: </strong> %s<br/><strong>Percent: </strong> %g",
+                  df_acs$geoid, df_acs$prcnt
+                  ) %>% lapply(htmltools::HTML)
+
+
+```
+
+Column {.tabset}
+-------------------------------------
+
+### Census Blok_group
+```{r LeafMap}
+
+ leaflet() %>%
+               addProviderTiles("CartoDB.DarkMatter") %>%
+               setView(lng = -77.03687, lat = 38.90717, zoom = 12) %>%  
+               addPolygons(data = sd1_cen,    # cen plot
+                           group = "cen",
+                           color = "#444444", 
+                           dashArray = "3",
+                           weight = 2,   #line thickness 
+                           smoothFactor = 0.5,
+                           opacity = 0.5,
+                           fillOpacity = 0.8,
+                           fillColor = ~pal1(cen_2010$prcnt),  
+                           highlightOptions = highlightOptions(color = "blue", weight = 4,bringToFront = TRUE), 
+                           #popup = popu_goes_here,
+                           stroke = TRUE,
+                           label = label_1,
+                           labelOptions = labelOptions(
+                                   style = list("font-weight" = "normal", padding = "3px 8px"),
+                                   textsize = "15px",
+                                   direction = "auto")
+                           ) %>%
+                addPolygons(data = sd1_acs,     # acs plot
+                            group = "acs",
+                            color = "#444444", 
+                            dashArray = "3",
+                            weight = 2,   #line thickness 
+                            smoothFactor = 0.5,
+                            opacity = 0.5,
+                            fillOpacity = 0.8,
+                            fillColor = ~pal2(acs_2017$prcnt),  
+                            highlightOptions = highlightOptions(color = "blue", weight = 4,bringToFront = TRUE), 
+                            popup = acs_2017$popup_text,
+                            stroke = TRUE,
+                            label = label_2,
+                            labelOptions = labelOptions(
+                                    style = list("font-weight" = "normal", padding = "3px 8px"),
+                                    textsize = "15px",
+                                    direction = "auto")
+                            ) %>%
+                addLayersControl( baseGroups = c("decen", "acs"),
+                                  options = layersControlOptions(collapsed = FALSE)) 
+                        
+              
+```
+
+
+### The datatable 
+
+```{r dataTable}
+options(DT.options = list(pageLength = 20))
+df_table <- df_sf %>% as.data.frame() %>% select(-geometry)
+
+datatable(df_table, options = list(searchHighlight = TRUE, search = list(search = '')))
+````
