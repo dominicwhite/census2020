@@ -1,0 +1,90 @@
+---
+title: "Census 2020 Cultural Messaging"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(here)
+```
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+library(sf)
+pop <- read_sf("foreign_country_of_birth2.csv")
+pop$TotalForeignBornE <- as.numeric(pop$TotalForeignBornE)
+pop$EuropeE <- as.numeric(pop$EuropeE)
+pop$Central.AmericaE <- as.numeric(pop$Central.AmericaE)
+pop$AsiaE <- as.numeric(pop$AsiaE)
+```
+
+Column {.sidebar data-width=200}
+-----------------------------------------------------------------------
+
+```{r}
+ selectInput("voi", label = h4("Show on map"), 
+    choices = list(
+      "Foreign-born" = "TotalForeignBornE",
+      "European-born" = "EuropeE",
+      "Cent. Am.-born" = "Central.AmericaE",
+      "Asian-born" = "AsiaE"
+      ), 
+    selected = "TotalForeignBornE")
+```
+
+#### About
+
+Built by DataKind DC, Motifv, and Hofstede Insights.
+
+
+Column {data-width=450}
+-----------------------------------------------------------------------
+
+### Map
+
+```{r, echo=FALSE}
+library(leaflet)
+library(leaflet.providers)
+
+bins <- reactive({c(as.integer(seq(from=0, to=max(pop[[input$voi]]), length.out=10)), Inf)})
+
+
+m <- renderLeaflet({
+  pal <- colorNumeric("YlOrRd", domain = pop[[input$voi]])
+  leaflet(pop) %>%
+    setView(lng = -77.045992, lat = 38.9145, zoom = 12) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%
+    addPolygons(
+      fillColor = ~pal(get(input$voi)),
+      weight = 2,
+      opacity = 1,
+      color = "white",
+      dashArray = "3",
+      fillOpacity = 0.7
+    )
+  })
+m
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+More detailed visualization to go here...
+
+```{r}
+
+```
+
+### Chart C
+
+More detailed visualization to go here...
+
+```{r}
+
+```
+
