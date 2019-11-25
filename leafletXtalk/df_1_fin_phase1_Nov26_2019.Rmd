@@ -106,9 +106,6 @@ datatable(sd2, rownames = TRUE, extensions = 'Scroller', options = list(
 ```{r scorePlot_1}
 library(plotly)
 p2 <- plot_ly(sd2, x = ~mail_return, y = ~rspns_score) %>%  
-        add_markers() %>%
-        layout(scene = list(xaxis = list(title = 'Weight'),
-                            yaxis = list(title = 'MPG'),
-                            zaxis = list(title = '1/4 mile time')))
+        add_markers() 
 p2
 ```
