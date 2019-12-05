@@ -1,0 +1,224 @@
+---
+title: "What is the demographic and liguistic make-up of census block groups in the District of Columbia?"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(sf))
+```
+
+
+```{r, include=FALSE}
+dc_trans <- st_read("transformed/combined_tabular.gpkg")
+```
+
+## Ethnicity
+
+### Why is ethnicity important for Census messaging?
+
+Different ethnicities have different cultural profiles in Hofstede Insights Consumer Cultural Intelligence (CCI) model.
+
+For example, white Americans show:
+
+* consistently stronger orientations towards "Me" (vs. We) in the Relationship dimension.
+* consistently stronger orientations twards "Not Concerned" (vs. Concerned) in the Impact dimension.
+
+(Other dimensions of culture correlate better with different age groups of each ethnicity (i.e. millenials vs boomers) - however, age is not considered in these analyses).
+
+4 ethnicites are present in our current Census/ACS dataset:
+
+```{r, echo=FALSE}
+ethnicity_data <- dc_trans %>%
+  select(hispanic = pct_Hispanic_ACS_13_17, white = pct_NH_White_alone_ACS_13_17, asian = pct_NH_Asian_alone_ACS_13_17, black = pct_NH_Blk_alone_ACS_13_17)
+```
+
+
+```{r, echo=FALSE}
+ethnicity_data %>%
+  gather(hispanic:black, key = "ethnicity", value="pct") %>%
+  ggplot() +
+  geom_density(aes(pct, fill=ethnicity), alpha = 0.4) +
+  labs(
+    title="What is the percentage of the 4 main ethnicities in D.C. block groups?",
+    x="% of ethnicity in block group",
+    y="fraction of block groups"
+  )
+```
+
+
+```{r, fig.size=8, echo=FALSE}
+ethnicity_data %>%
+  gather(hispanic:black, key = "ethnicity", value="pct") %>%
+  ggplot() +
+  geom_density(aes(pct, fill=ethnicity)) +
+  facet_wrap(~ethnicity) +
+  labs(
+    title="What is the percentage of the 4 main ethnicities in D.C. block groups?",
+    x="% of ethnicity in block group",
+    y="fraction of block groups"
+  )
+```
+
+There are significant differences in the distribution of each ethnicity. For example, block groups have a fairly uniform distribution with regards to African Americans, whereas there are relatively few block groups with a high percentage of Asian and Hispanic residents.
+
+Statistics for each ethnicity across D.C.'s block groups:
+
+```{r, echo=FALSE}
+knitr::kable(ethnicity_data %>%
+  as.data.frame() %>%
+  select(-geom) %>%
+  gather(hispanic:black, key="ethnicity", value="percent") %>%
+  group_by(ethnicity) %>%
+  summarize_all(
+    list(mean = mean, median = median, max=max, min = min, std.dev = sd)
+  ))
+```
+
+Based on these numbers and the CCI data supplied by Marty Karaffa, we are going to recommend the following approaches in the dashboard:
+
+| Condition | Recommendation |
+|-----------|----------------|
+| whites > 35% | "This block group has more white residents than average. Consider messaging that emphasizes *Me* ("...and you'll get more benefit from your tax dollar... make your voice heard") and *Unconcerned* ('...so government and business can do their jobs better/improve their performance')" |
+| whites > 35% and (blacks < 45% and hispanics < 10%) | "This block group has more white residents and fewer than average African Americans & Hispanics. Consider messaging that emphasizes *Function* ('...here is what people like you are saying about the census: ...')" |
+| whites < 35% and (blacks < 45% or hispanics < 10%) | "This block group has a significant African American and/or Hispanic population. Consider messaging that emphasizes *Appeal* ('...you may have heard about the census. It's getting a lot of attention.')" |
+
+Note that the conditions are based on the percentage of different ethnicities in a particular block group compared to the average percentage of that ethnicity across all of D.C.'s block group.
+
+## Nationality
+
+Culture varies between countries. Our Census/ACS dataset includes estimates of the percentage of the population born in different countries. We can use this data to suggest messaging approaches that may resonate more with residents from these cultures.
+
+```{r, echo=FALSE}
+nationality_data <- dc_trans %>%
+  select(TotalForeignBornE:CanadaE)
+```
+
+This table shows statistics for the total number of foreign-born residents across all of the block groups in D.C.:
+
+```{r, echo=FALSE}
+knitr::kable(nationality_data %>%
+  as.data.frame() %>%
+  select(TotalForeignBornE) %>%
+  summarize(
+    mean = mean(TotalForeignBornE), median = median(TotalForeignBornE), max=max(TotalForeignBornE), min = min(TotalForeignBornE), std.dev = sd(TotalForeignBornE)
+  ))
+```
+
+```{r, echo=FALSE}
+nationality_data %>%
+  select(TotalForeignBornE) %>%
+  ggplot() +
+  geom_histogram(aes(TotalForeignBornE, y=..density..), bins=15) +
+  geom_density(aes(TotalForeignBornE)) +
+  labs(
+    title="What proportion of residents are foreign-born in D.C.'s block groups?",
+    x="% of foreign-born residents in block group",
+    y="fraction of block groups"
+  )
+```
+
+Although there are a lot of block groups in D.C. with a significant number of foreign-born residents, the cultural dimensions are country specific, so we need to focus on specific countries that have a high number of foreign born residents.
+
+For example, if we break down the data by broad geographic regions, we can see that some (e.g. Oceania) are very poorly represented in D.C.:
+
+```{r, echo=FALSE, fig.width=8, fig.asp=2}
+nationality_data %>%
+  gather(TotalForeignBornE, EuropeE, AsiaE, AfricaE, OceaniaE, AmericasE, Latin.AmericaE, South.AmericaE, Central.AmericaE, CaribbeanE, Northern.AmericaE, key = "region", value="pct") %>%
+  ggplot() +
+  geom_density(aes(pct, fill=region), position = "identity", alpha = 0.4) +
+  facet_wrap(~region, ncol = 2, scales="free_y") +
+  labs(
+    title="What proportion of residents were born in different regions?",
+    x="% of foreign-born residents in block group",
+    y="fraction of block groups"
+  )
+```
+
+We can calculate statistics about the number of foreign-born residents from specific countries across D.C.'s block groups. Here we see the mean and maximum of a country's percentage, for all countries that make up at least 5% of one of D.C.'s block groups (i.e. countries for which max > 5) 
+
+```{r, echo=FALSE}
+knitr::kable(nationality_data %>%
+  as.data.frame() %>%
+  select(
+    EnglandE:SwedenE,
+    AustriaE:SwitzerlandE,
+    GreeceE:PortugalE, SpainE,
+    AlbaniaE:SerbiaE,
+    China.excluding.Hong.Kong.and.TaiwanE:KoreaE,
+    AfghanistanE:UzbekistanE,
+    CambodiaE:VietnamE,
+    IraqE:ArmeniaE,
+    EritreaE:SomaliaE,
+    CameroonE,
+    EgyptE:SudanE,
+    South.AfricaE,
+    Cabo.VerdeE:Sierra.LeoneE,
+    AustraliaE, FijiE,
+    BahamasE:West.IndiesE,
+    MexicoE:PanamaE,
+    ArgentinaE:VenezuelaE,
+    CanadaE
+    ) %>%
+  gather(EnglandE:CanadaE, key="nationality", value="percent") %>%
+  select(nationality, percent) %>%
+  group_by(nationality) %>%
+  summarize_all(
+    list(mean = mean, maximum=max)
+  ) %>%
+  filter(maximum > 5) %>%
+  arrange(-maximum)
+)
+```
+
+
+
+## Language
+
+Language is another important aspect of culturally sensitive communication. The Census/ACS dataset contains data on the number of households without members (>14 years old) who speak English "very well". Both census's and messaging in block groups with high proportions of these households should reflect the fact that other languages may increase the response rate.
+
+Unfortunately, the current language data we are using does not break down most languages beyond regional language families (i.e. "Indo-European languages").
+
+```{r, echo=FALSE}
+language_data <- dc_trans %>%
+  as.data.frame() %>%
+  select(Pop_5yrs_Over_ACS_13_17:Othr_Lang_ACS_13_17, pct_ENG_VW_SPAN_ACS_13_17:pct_ENG_VW_ACS_13_17) %>%
+  transmute(
+    pct_nonEnglishSpeakers_atHome = Othr_Lang_ACS_13_17 / Pop_5yrs_Over_ACS_13_17,
+    pct_nonEnglish_households = pct_ENG_VW_ACS_13_17,
+    pct_spanish_households = pct_ENG_VW_SPAN_ACS_13_17,
+    pct_indoEuorpean_households = pct_ENG_VW_INDOEURO_ACS_13_17,
+    pct_asianAndPacific_households = pct_ENG_VW_API_ACS_13_17,
+    pct_otherLang_households = pct_ENG_VW_OTHER_ACS_13_17
+  )
+```
+
+
+```{r, echo=FALSE, fig.width=8, fig.asp=0.8}
+language_data %>%
+  gather(pct_nonEnglish_households:pct_otherLang_households, key = "language", value="percent") %>%
+  ggplot() +
+  geom_density(aes(percent, fill=language), alpha="0.5") +
+  facet_wrap(~language, scales="free", ncol = 2) +
+  labs(
+    title="What % of households in a block group do not have any adult who speaks English well (broken down by principle household language)?",
+    x="% of language-speaking households in block group",
+    y="fraction of block groups"
+  )
+```
+
+```{r, echo=FALSE}
+knitr::kable(language_data %>%
+  filter(!is.na(pct_otherLang_households)) %>%
+  gather(pct_nonEnglish_households:pct_otherLang_households, key = "language", value="percent") %>%
+  select(language, percent) %>%
+  group_by(language) %>%
+  summarize_all(
+    list(mean = mean, median = median, max=max)
+  )
+)
+```
+
+
+
+
