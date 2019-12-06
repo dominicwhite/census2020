@@ -138,7 +138,7 @@ nationality_data %>%
 We can calculate statistics about the number of foreign-born residents from specific countries across D.C.'s block groups. Here we see the mean and maximum of a country's percentage, for all countries that make up at least 5% of one of D.C.'s block groups (i.e. countries for which max > 5) 
 
 ```{r, echo=FALSE}
-knitr::kable(nationality_data %>%
+top_nats <- nationality_data %>%
   as.data.frame() %>%
   select(
     EnglandE:SwedenE,
@@ -168,8 +168,44 @@ knitr::kable(nationality_data %>%
   ) %>%
   filter(maximum > 5) %>%
   arrange(-maximum)
-)
+knitr::kable(top_nats)
 ```
+
+```{r}
+sort(top_nats$nationality)
+```
+
+In Hofstede:
+
+* Chile: full
+* China: full
+* Dominican Rep: partial
+* El Salvador: full
+* Ethiopia: single
+* Germany: full
+* Guatemala: partial
+* Honduras: none
+* India: full
+* Mexico: full
+* Philippines: full
+
+
+```{r}
+hofstede <- read_delim(
+  "static/hofstede-6-dimensions-0-100.csv",
+  ";",
+  na = c("", "NA", "#NULL!")
+  )
+```
+
+```{r}
+hofstede %>%
+  filter(
+    country %in% c("Chile", "China", "El Salvador", "Germany", "Honduras", "India", "Mexico", "Philippines", "U.S.A.")
+  )
+```
+
+
 
 
 
