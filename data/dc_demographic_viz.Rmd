@@ -6,6 +6,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(sf))
+suppressPackageStartupMessages(library(tmap))
 ```
 
 
@@ -105,6 +106,13 @@ knitr::kable(nationality_data %>%
   ))
 ```
 
+```{r}
+tm_shape(nationality_data) +
+  tm_polygons("TotalForeignBornE")
+```
+
+
+
 ```{r, echo=FALSE}
 nationality_data %>%
   select(TotalForeignBornE) %>%
@@ -141,7 +149,8 @@ We can calculate statistics about the number of foreign-born residents from spec
 top_nats <- nationality_data %>%
   as.data.frame() %>%
   select(
-    EnglandE:SwedenE,
+    United.Kingdom..inc..Crown.Dependencies.E,
+    IrelandE:SwedenE,
     AustriaE:SwitzerlandE,
     GreeceE:PortugalE, SpainE,
     AlbaniaE:SerbiaE,
@@ -160,7 +169,7 @@ top_nats <- nationality_data %>%
     ArgentinaE:VenezuelaE,
     CanadaE
     ) %>%
-  gather(EnglandE:CanadaE, key="nationality", value="percent") %>%
+  gather(United.Kingdom..inc..Crown.Dependencies.E:CanadaE, key="nationality", value="percent") %>%
   select(nationality, percent) %>%
   group_by(nationality) %>%
   summarize_all(
@@ -205,8 +214,193 @@ hofstede %>%
   )
 ```
 
+```{r}
+countries <- nationality_data %>%
+  as.data.frame() %>%
+  select(
+    EnglandE:SwedenE,
+    AustriaE:SwitzerlandE,
+    GreeceE:PortugalE, SpainE,
+    AlbaniaE:SerbiaE,
+    China.excluding.Hong.Kong.and.TaiwanE:KoreaE,
+    AfghanistanE:UzbekistanE,
+    CambodiaE:VietnamE,
+    IraqE:ArmeniaE,
+    EritreaE:SomaliaE,
+    CameroonE,
+    EgyptE:SudanE,
+    South.AfricaE,
+    Cabo.VerdeE:Sierra.LeoneE,
+    AustraliaE, FijiE,
+    BahamasE:West.IndiesE,
+    MexicoE:PanamaE,
+    ArgentinaE:VenezuelaE,
+    CanadaE
+    ) %>%
+  colnames() %>%
+  sort() %>%
+  as.data.frame()
+```
 
 
+```{r}
+country_pcts <- dc_trans %>%
+  as.data.frame() %>%
+  select(
+    GIDBG,
+    Albania = AlbaniaE,
+    Argentina = ArgentinaE,
+    Armenia = ArmeniaE,
+    Australia = AustraliaE,
+    Austria = AustriaE,
+    Bangladesh = BangladeshE,
+    Belarus = BelarusE,
+    Belgium = BelgiumE,
+    Bosnia = Bosnia.and.HerzegovinaE,
+    Brazil = BrazilE,
+    Bulgaria = BulgariaE,
+    Canada = CanadaE,
+    Chile = ChileE,
+    China = China.excluding.Hong.Kong.and.TaiwanE,
+    Columbia = ColombiaE,
+    `Costa Rica` = Costa.RicaE,
+    Croatia = CroatiaE,
+    `Czech Rep` = Czechoslovakia..includes.Czech.Republic.and.Slovakia.E,
+    Denmark = DenmarkE,
+    `Dominican Rep` = Dominican.RepublicE,
+    Ecuador = EcuadorE,
+    Egypt = EgyptE,
+    `El Salvador` = El.SalvadorE,
+    Ethiopia = EthiopiaE,
+    France = FranceE,
+    Germany = GermanyE,
+    Ghana = GhanaE,
+    `Great Britain` = United.Kingdom..inc..Crown.Dependencies.E,
+    Greece = GreeceE,
+    Guatemala = GuatemalaE,
+    `Hong Kong` = Hong.KongE,
+    Hungary = HungaryE,
+    India = IndiaE,
+    Indonesia = IndonesiaE,
+    Iran = IranE,
+    Iraq = IraqE,
+    Ireland = IrelandE,
+    Israel = IsraelE,
+    Italy = ItalyE,
+    Jamaica = JamaicaE,
+    Japan = JapanE,
+    Jordan = JordanE,
+    `Korea South` = KoreaE,
+    Latvia = LatviaE,
+    Lithuania = LithuaniaE,
+    `Macedonia Rep` = MacedoniaE,
+    Malaysia = MalaysiaE,
+    Mexico = MexicoE,
+    Moldova = MoldovaE,
+    Morocco = MoroccoE,
+    Netherlands = NetherlandsE,
+    Nigeria = NigeriaE,
+    Norway = NorwayE,
+    Pakistan = PakistanE,
+    Panama = PanamaE,
+    Peru = PeruE,
+    Philippines = PhilippinesE,
+    Poland = PolandE,
+    Portugal = PortugalE,
+    Romania = RomaniaE,
+    Russia = RussiaE,
+    `Saudi Arabia` = Saudi.ArabiaE,
+    Serbia = SerbiaE,
+    Singapore = SingaporeE,
+    `South Africa` = South.AfricaE,
+    Spain = SpainE,
+    Sweden = SwedenE,
+    Switzerland = SwitzerlandE,
+    Taiwan = TaiwanE,
+    Thailand = ThailandE,
+    `Trinidad and Tobago` = Trinidad.and.TobagoE,
+    Turkey = TurkeyE,
+    Ukraine = UkraineE,
+    Uruguay = UruguayE,
+    `U.S.A.` = TotalForeignBornE,
+    Venezuela = VenezuelaE,
+    Vietnam = VietnamE
+  ) %>%
+  mutate(
+    U.S.A. = 100 - U.S.A.
+  )
+```
+
+```{r}
+bg_hofstede <- country_pcts %>%
+  gather(Albania:Vietnam, key="country", value="pct") %>%
+  filter(pct > 0) %>%
+  dplyr::left_join(hofstede, by = c("country" = "country"))
+```
+
+```{r}
+bg_hofstede %>%
+  gather(pdi:ivr, key = "hof.dim", value = "hof.val") %>%
+  filter(!is.na(hof.val), country != "U.S.A.") %>%
+  ggplot() +
+  geom_histogram(aes(x=hof.val, y=pct), stat="identity", position="stack") +
+  facet_wrap(~hof.dim)
+```
+
+Weighted mean of Hofstede dimensions in each Block Group (including US born residents):
+
+```{r}
+bg_hofstede %>%
+  gather(pdi:ivr, key = "hof.dim", value = "hof.val") %>%
+  filter(!is.na(hof.val)) %>%
+  group_by(GIDBG, hof.dim) %>%
+  summarize(
+    wmean = weighted.mean(hof.val, pct)
+  ) %>%
+  ggplot() +
+  geom_histogram(aes(wmean)) +
+  facet_wrap(~hof.dim)
+```
+
+Weighted mean of Hofstede dimensions in each Block Group (foreign-born residents only). Red line shows the US value for each cultural dimension:
+
+```{r}
+bg_hofstede %>%
+  gather(pdi:ivr, key = "hof.dim", value = "hof.val") %>%
+  mutate(
+    USvalue = recode(
+      hof.dim,
+      "pdi" = 40,
+      "idv" = 91,
+      "mas" = 62,
+      "uai" = 46,
+      "ltowvs" = 26,
+      "ivr" = 68
+      )
+  ) %>%
+  filter(!is.na(hof.val), country != "U.S.A.") %>%
+  group_by(GIDBG, hof.dim) %>%
+  summarize(
+    wmean = weighted.mean(hof.val, pct),
+    us_value = first(USvalue)
+  ) %>%
+  ggplot() +
+  geom_histogram(aes(wmean)) +
+  geom_vline(aes(xintercept = us_value), color = "red") +
+  facet_wrap(~hof.dim)
+```
+
+The dashboard will recommend the following approaches for block groups *in which more than 10% of the residents are foreign born*:
+
+| Cultural Dimension                     | Condition                | Recommendation                                    |
+|----------------------------------------|--------------------------|---------------------------------------------------|
+| idv (Individualism vs. collectivism)   | mean foreign idv < 50    | More collectivist society than the USA. Consider messaging that emphasizes *We*. |
+| ivr (Indulgence vs. restraint)         | mean foreign ivr > 80 | More indulgent than USA. Message: ? |
+| ivr (Indulgence vs. restraint)         | mean foreign ivr < 65 | More restrained than USA. Message: ? |
+| lto (Long- vs. short-term orientation) | mean foreign lto > 35 | More long term oriented than the USA. Message: ? |
+| pdi (Power distance index)             | mean foreign pdi > 50 | More hierachical society than USA. Message: ? |
+| uai (Uncertainty avoidance)            | mean foreign uai < 25 | Lower uncertainty avoidance than USA. Message: ? |
+| uai (Uncertainty avoidance)            | mean foreign uai > 50 | Higher uncertainty avoidance than USA. Message: ? |
 
 
 ## Language
@@ -234,7 +428,7 @@ language_data <- dc_trans %>%
 language_data %>%
   gather(pct_nonEnglish_households:pct_otherLang_households, key = "language", value="percent") %>%
   ggplot() +
-  geom_density(aes(percent, fill=language), alpha="0.5") +
+  geom_density(aes(percent, fill=language), alpha=0.5) +
   facet_wrap(~language, scales="free", ncol = 2) +
   labs(
     title="What % of households in a block group do not have any adult who speaks English well (broken down by principle household language)?",
